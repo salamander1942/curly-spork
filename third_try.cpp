@@ -46,7 +46,7 @@ inline int find_index_op(char character){
     }
 
     // this should never happen ever, default to addition
-    return 5;
+    return 127;
 }
 
 inline std::vector<number> parse_numbers(const string &inputString){
@@ -222,6 +222,10 @@ ConvertToCode(string inputString){
     }
 
     // sort the instructions by order of operations (bubble sort because its easy)
+    // also If somebody were to use a different sorting algorithm, it would break the code
+    // this is because the first occurences of the values are placed after the last, meaning if
+    // another sorting algorithm was used that didn't respect this, it would break order of operations
+    // and therefore break the code. I should find some way to fix this in the future.
     bool swaps = true;
     auto n = operands.size() - 1;
     while (swaps){
@@ -238,34 +242,20 @@ ConvertToCode(string inputString){
     }
 
     // replace all of the operators with thier index in the operator reference array
-    for (int item = 0; item < operands.size(); ++item) operands[item] = find_index_op(operands[item]);
+    for (int item = 0; item < operands.size(); ++item) operands.at(item) = find_index_op(operands.at(item));
 
-    // now parse the adresses as the numers are parsed, by parsing the numbers
-    char op = '^';
-    for (int item=0; item < operands.size(); ++item) {
 
-        // subtract 1 from all instructions before an operand
-
-        // find the operand
-        for (char c : OpArraySymbolChar){
-            if (operands[item] = c){
-                op = c;
-                break;
-            }
-        }
-
-        for (int x = item; x < operands.size(); ++x) {
-            // first check if its the same type (aka done in the same step
-            // if so, dont add anything to its adress unless it is directly after another of the same type
-            if ( (item =! 0) && (operands[item-1] == op) ) {
-                    adr1[x] = adr1[x] -1;;
-            }
-        }
-        // and add to the previous items
-        for (int x = item; x < operands.size(); ++x) {
-            // apply the same logic reversed
-            if (!( (item =! operands.size()-1) && (operands[item+1] == op) ) ) {
-                    adr2[x] = adr2[x] +1;
+    // now parse the adresses as the numers are parsed, by searching for each operation type
+    for (int c = OpArraySymbolChar.size(); c > 0; --c){
+        // now find occurences of the operation in the array, and adjust surrounding adresses accoringly
+        // to account for order of operations
+        for (int item=0; item < operands.size() - 1; ++item){
+            if (operands[item] == c){
+                // check the operation directly after and before, if they are a lower/equal bedmass value,
+                // shift their first adress back one value
+                if (find_index_op(operands.at(item + 1)) <= c) {
+                    adr1[item +1 ] = adr1[item + 1] -1;
+                }
             }
         }
     }
@@ -283,59 +273,50 @@ number simplify(std::vector<short> adr1,
     A function to simplify the stored equation into a numerical result
     */
 
-    // start with iterating over each operation in the list, and when it is done,
-    // write the result to adr1, and remove adress two
-    for (int op = 0; op < operands.size(); ++op){
+    // start with iterating over each operation in the list, and apply the operation
+    // write the result to adress one, and the final adress one should be the result
+    for (int i = 0; i < operands.size(); ++i){
 
-        for (auto item : numbers){
-            std::cout << item << ' ';
-        }
-        std::cout << '\n';
-        // now store adr2 in a var, and delete it
-        auto num2 = numbers[adr2[op]];
-
-        //remove the number in adr2 from the numbers list
-        numbers.erase(numbers.begin() + op+1);
-
-        std::cout << "applying the " << (int) operands[op] << " operation to these values :"
-        << numbers[adr1[op]] << ' ' << num2 << '\n';
+        std::cout << "applying the " << (int) operands[i] << " operation to these values :"
+        << numbers[adr1[i]] << ' ' << numbers[adr2[i]] << '\n';
 
 
         // now check what operation to do
-        switch (operands[op]){
+        switch (operands[i]){
             case(0):
-                numbers[adr1[op]] = std::pow(numbers[adr1[op]], num2);
+                numbers[adr1[i]] = std::pow(numbers[adr1[i]], numbers[adr2[i]]);
                 break;
             case(1):
-                numbers[adr1[op]]= numbers[adr1[op]] / num2;
+                numbers[adr1[i]]= numbers[adr1[i]] / numbers[adr2[i]];
                 break;
 
             case(2):
-                numbers[adr1[op]] = std::fmod(numbers[adr1[op]], num2);
+                numbers[adr1[i]] = std::fmod(numbers[adr1[i]], numbers[adr2[i]]);
                 break;
 
             case(3):
-                numbers[adr1[op]] = numbers[adr1[op]] * num2;
+                numbers[adr1[i]] = numbers[adr1[i]] * numbers[adr2[i]];
                 break;
 
             case(4):
-                numbers[adr1[op]] = numbers[adr1[op]] - num2;
+                numbers[adr1[i]] = numbers[adr1[i]] - numbers[adr2[i]];
                 break;
 
             case(5):
-                numbers[adr1[op]] = numbers[adr1[op]] + num2;
+                numbers[adr1[i]] = numbers[adr1[i]] + numbers[adr2[i]];
                 break;
 
             default:
                 // add the numbers by default
-                numbers[adr1[op]] = numbers[adr1[op]] + num2;
+                numbers[adr1[i]] = numbers[adr1[i]] + numbers[adr2[i]];
 
         }
 
-        std::cout << "the result was " << numbers[adr1[op]] << '\n';
+        std::cout << "the result was " << numbers[adr1[i]] << '\n';
     }
-    // now the vector should be left with one item, return this item
-    return numbers[0];
+    // now the vector should be left with one item, return this item (the first adress of the last
+    // operation)
+    return numbers[adr1[operands.size() -1]];
 }
 
 int main(){
