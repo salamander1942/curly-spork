@@ -45,7 +45,7 @@ inline int find_index_op(char character){
         if (OpArraySymbolChar.at(item) == character) return item;
     }
 
-    // this should never happen ever, default to addition
+    // this should never happen ever, if so then send an error code
     return 127;
 }
 
@@ -221,6 +221,27 @@ ConvertToCode(string inputString){
 
     }
 
+    // replace all of the operators with thier index in the operator reference array
+    for (int item = 0; item < operands.size(); ++item) operands.at(item) = find_index_op(operands.at(item));
+
+
+    // now parse the adresses as the numers are parsed, by searching for each operation type
+    for (int c = OpArraySymbolChar.size(); c > 0; --c){
+        // now find occurences of the operation in the array, and adjust surrounding adresses accoringly
+        // to account for the fact that that operation will be done first
+        for (int item=0; item < operands.size() - 1; ++item){
+            if (operands.at(item) == c){
+                // check the operation directly after and before, if they are a lower/equal bedmass value,
+                // shift their first adress back one value
+                if (operands.at(item + 1) <= c) {
+                    adr1.at(item +1 ) = adr1.at(item);
+                    std::cout << "shifted\n";
+                }
+            }
+        }
+    }
+
+
     // sort the instructions by order of operations (bubble sort because its easy)
     // also If somebody were to use a different sorting algorithm, it would break the code
     // this is because the first occurences of the values are placed after the last, meaning if
@@ -241,25 +262,6 @@ ConvertToCode(string inputString){
         --n;
     }
 
-    // replace all of the operators with thier index in the operator reference array
-    for (int item = 0; item < operands.size(); ++item) operands.at(item) = find_index_op(operands.at(item));
-
-
-    // now parse the adresses as the numers are parsed, by searching for each operation type
-    for (int c = OpArraySymbolChar.size(); c > 0; --c){
-        // now find occurences of the operation in the array, and adjust surrounding adresses accoringly
-        // to account for order of operations
-        for (int item=0; item < operands.size() - 1; ++item){
-            if (operands[item] == c){
-                // check the operation directly after and before, if they are a lower/equal bedmass value,
-                // shift their first adress back one value
-                if (find_index_op(operands.at(item + 1)) <= c) {
-                    adr1[item +1 ] = adr1[item + 1] -1;
-                }
-            }
-        }
-    }
-
     // now that all of the adresses have been changed to be correct for when the expression is completed
     // fulfilling order of operations, return the 4 arrays in a tuple
     return {adr1, adr2, operands, numbers};
@@ -277,8 +279,8 @@ number simplify(std::vector<short> adr1,
     // write the result to adress one, and the final adress one should be the result
     for (int i = 0; i < operands.size(); ++i){
 
-        std::cout << "applying the " << (int) operands[i] << " operation to these values :"
-        << numbers[adr1[i]] << ' ' << numbers[adr2[i]] << '\n';
+        std::cout << "applying the " << (int) operands[i] << " operation to adresses :"
+        << adr1[i] << ' ' << adr2[i] << '\n';
 
 
         // now check what operation to do
@@ -320,7 +322,6 @@ number simplify(std::vector<short> adr1,
 }
 
 int main(){
-
     string inputData {};
 
     cout << "Please enter a mathimatical expression (NO SYNTAX CHECKING YET)\n";
@@ -328,23 +329,16 @@ int main(){
     auto [a1, a2, a3, a4] = ConvertToCode(inputData);
 
     // for debug purposes
-    std::cout << "adress1\n";
-    for (auto i : a1) {
-        std::cout << i << '\n';
-    }
-    std::cout << "adress2\n";
-    for (auto i : a2) {
-        std::cout << i << '\n';
-    }
-    std::cout << "operands\n";
-    for (auto i : a3) {
-        std::cout << (int)i << '\n';
-    }
     std::cout << "numbers\n";
     for (auto i : a4) {
-        std::cout << i << '\n';
+        std::cout << i << " ";
     }
+    std::cout << '\n';
 
+    for (int x = 0; x < a3.size(); ++x){
+        std::cout << (int) a3[x] << " | " << a1[x] << " | " << a2[x] << " | \n";
+    }
+    std::cout << '\n';
     // now crunch down the expression and print the result, fingers crossed
     cout << "the result is : ";
     cout << simplify(a1,a2,a3,a4);
