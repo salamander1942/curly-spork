@@ -19,18 +19,6 @@ std::array<char, 6> OpArraySymbolChar  {'^','/','%','*','-','+'}; // an array of
 std::array<char, 3> SpecalCharacters {'(',')'};
 
 /*
-Format for a program:
-Operation
-number
-number
-result goes to an adress in a list (0 is result)
-operation
-number
-number
-result
- */
-
-/*
 
 adr1
 adr2
@@ -294,11 +282,98 @@ inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std
 
 }
 
-inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std::vector<number>> bracket_extractor_sub_function(std::string inputString, std::vector<short> &lastAdresses, short &x){
+inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std::vector<number>> parse_highest_level(std::string inputString, std::vector<short> lastAdresses) {
     /*
-    A sub function to parse out an expression from a would be bracketed one
+    NOTICE: WILL NEED TO ADD FUNCTION TO PARSE EXPRESSION THAT COULD HAVE NOTHING HERE!
+    It could also be some bracketed expression implicitly or explicity multiplied by a constant,
+    so also include logic for that ( like an expression like (5+2) or 5(4-2) or 5*(5-2) ) the latter
+    the program might be able to handel
     */
-    std::string substring;
+
+
+    std::cout << "\tParsing the highest level of the expression!" << std::endl;
+
+    std::vector<short> offsets {}; // a vector to store the apropriate offsets for each adress jump
+    std::vector<short> offsetStart{}; // to hold the index of where the offset should start
+    std::string subString;
+    short nonBrktStart = 0; // the start of a bracket
+    short nonBrktEnd = 0;
+    bool flag = false;
+    short counter = 0;
+
+    // put all un bracketed parts of the expression into a substring, replacing all bracketed parts with
+    // a place holder character (in this case 1)
+    // also store all required adresss shifts that will be nessisary due to the bracketed segments
+    // being removed (if i remove the middle part of the string when converting to code, and I try to
+    // use the same adresses as outputed, it will be an adress inside a bracket
+    for (short u = 0; u < inputString.size(); ++u){
+        // count how many  right opening brackets there are, and add to the depth
+        if (inputString.at(u) == '('){
+            if (flag != true) {nonBrktEnd = u; }// get the starting index of the bracket
+            ++counter; flag = true; // now that the brackets have been found, iterate both the counter and the flag
+
+        }
+        if (inputString.at(u) == ')') {
+            --counter;
+        }
+
+        // if it is inside or starting a bracket
+        if (flag) {
+            // if its just finished going through a bracket, mark the start of the next non bracketed part
+            if (counter == 0){
+                flag = false;
+                nonBrktStart = u + 1;
+                offsets.push_back(u);
+
+            } else if (u == nonBrktEnd) {
+                // if the program has just reached the start of a new bracketed expression
+                // add the non bracketed preceeding characters to the substring, along with a placeholder for
+                // the bracketed part
+
+                offsetStart.push_back(subString.length() / 2); // where the offset will start accounting for the bracket end
+                subString = inputString.substr(nonBrktStart, inputString.size() - nonBrktEnd) + "1";
+
+            }
+        }
+    }
+    // if the expression does not end in a bracket, add the last of the expression to the substring
+    if (nonBrktStart < subString.length()) {
+        offsetStart.push_back(subString.length() / 2);
+        subString = inputString.substr(nonBrktStart, inputString.size() - nonBrktEnd);
+    }
+
+    std::cout << "the string to be parsed is : "<< subString << std::endl;
+
+    // now parse the substring
+    auto [_adr1, _adr2, _op, _num] = convert_to_code(subString);
+
+    // now add the apropriate offset to the adresses to account for the sections where brackets were removed
+    for (short O = 0; O < offsetStart.size() - 1; ++O) {
+        for(int X = offsetStart[O]; X < offsetStart[O+1]; ++X){
+            ++_adr1[ offsets[O] ];
+            ++_adr2[ offsets[O] ];
+        }
+
+    }
+    // for the last offset, do untill the end of the list
+    for(int X = offsetStart.back(); X < _adr1.size(); ++X){
+            ++_adr1[ offsets.back() ];
+            ++_adr2[ offsets.back() ];
+    }
+
+    // replace the temporary adresses for the brackets with the real adresses for the brackets
+    for (short adress : offsetStart) {
+        _adr1.at(adress) = lastAdresses.back();
+        lastAdresses.pop_back();
+    }
+
+    // finally sort the output
+    auto result = sorter(_adr1, _adr2, _op, _num);
+
+    // return the parsed expression when the program is done running
+    // the number return is only for debug, but it will never be used
+    return result;
+
 
 
 }
@@ -500,91 +575,17 @@ std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std::vecto
         --bracketDepth;
     }
 
-    /*
-    Now parse the part of the expression without brackets, steal the logic from numtog
-    */
+    // now parse the highest level of the expression
+    auto [a, b, c, d] = parse_highest_level(inputString, lastAdresses);
 
-    /*
-    NOTICE: WILL NEED TO ADD FUNCTION TO PARSE EXPRESSION THAT COULD HAVE NOTHING HERE!
-    It could also be some bracketed expression implicitly or explicity multiplied by a constant,
-    so also include logic for that ( like an expression like (5+2) or 5(4-2) or 5*(5-2) ) the latter
-    the program might be able to handel
-    */
-
-
-    std::cout << "\tParsing the highest level of the expression!" << std::endl;
-
-    std::vector<short> startOfBracket {}; // a vector to hold the start of the brackets
-    std::vector<short> lengthOfBracket {}; // the length of every bracketed expression, (as to include the final bracket)
-
-    for (char c : inputString){
-        // count how many  right opening brackets there are, and add to the depth
-        if (c == '('){
-            ++brkDpth; ++counter; flag = true; // now that the brackets have been found, iterate both the counter and the flag
-        }
-        if (c == ')') {
-            --counter;
-        }
-
-        // if it has detected a full level of brackets, see if it is the deepest
-        if (flag && (counter == 0)) {
-            if (brkDpth > bracketDepth) bracketDepth = brkDpth;
-            brkDpth = 0;
-            flag = false;
-            ++brkWidth; // a full level is also a full width
-        }
-        std::cout << "the bracket depth var is " << brkDpth << " and the deepest depth is " << bracketDepth << " and the char is" << c << std::endl;;
+    // and add it to the main array
+    for (int x = 0; x < a.size(); ++x){
+        adr1.push_back(a.at(x));
+        adr2.push_back(b.at(x));
+        operands.push_back(c.at(x));
     }
 
-    // find the start of every bracket statement
-    short startAdr = x - 1;
-
-    // add a pretend character to the substring as a placeholder for the brackt between the two  sides of the bracket
-    // the minus one on the other one is to avoid including the end bracket
-    substring = inputString.substr(adrStart, inputString.size() - startAdr) + "1" + inputString.substr(startAdr, inputString.size() - x - 1);
-
-    std::cout << "the string to be parsed is : "<< substring << std::endl;
-
-    // now parse the substring
-    auto [_adr1, _adr2, _op, _num] = convert_to_code(substring);
-
-    // count how many operands are before the first half of the bracket for apropriate offset
-    short toFirstBracket = inputString.substr(adrStart, inputString.size() - startAdr).size();
-
-    // now add the apropriate offset to the fist few of the adresses
-    for (short &num : _adr1) num += opIndex;
-    for (short &num : _adr2) num += opIndex;
-
-    // replace the first adress of the bracketed part with the bracket adress
-    _adr1.at(toFirstBracket -1 ) = lastAdresses.at(lastAdresses.size() -1);
-    // remove the last adress so it is not used again
-    lastAdresses.pop_back();
-
-    // now add the apropriate offset to the fist few of the adresses
-    for (int i = 0; i < startAdr; ++i) _adr1.at(i) += adrStart;
-    for (int i = 0; i < startAdr; ++i) _adr2.at(i) += adrStart;
-
-    // and the apropriate offset to the last adresses
-    for (int i = 0; i < startAdr; ++i) _adr1.at(i) += startAdr;
-    for (int i = 0; i < startAdr; ++i) _adr2.at(i) += startAdr;
-
-    // finally sort the output
-    auto result = sorter(_adr1, _adr2, _op, _num);
-    _adr1 = std::get<0>(result);
-    _adr2 = std::get<1>(result);
-    _op = std::get<2>(result);
-    _num = std::get<3>(result);
-
-
-    // add the result to the main vector
-    for (int i = 0; i < _adr1.size(); ++i){
-        adr1.push_back(_adr1.at(i));
-        adr2.push_back(_adr2.at(i));
-        operands.push_back(_op.at(i));
-    }
-
-
-    // return the parsed expression when the program is done running
+    // return the parsed expression, with the highest level parsed when the program is done running
     return {adr1, adr2, operands, numbers};
     }
 
@@ -642,32 +643,89 @@ number simplify(std::vector<short> adr1,
     return numbers[adr1[operands.size() -1]];
 }
 
+
+bool test (){
+    /*
+    A function to test the program, notice that all couts have std:endl this is to ensure that
+    all debuging messages are seen, although it will slow the program down
+    */
+
+    std::cout << "STARTING TESTS:" << std::endl;
+
+    // a list of text to parse, and the expected result (if the function exicutes corectly)
+    // for varius functions
+    std::array<std::string, 5> TEST_STRINGS {
+        "1-2+3*(4-5)+6",
+        "(1-2)*3-4",
+        "1-2*(3+4)",
+        "1-(2+3)+(4-5)+6",
+        "(1+2)-(3+4)",
+    };
+    // for the output of the function
+    //(I should really replace this with its own name, for how often I've used this, but here i will break my
+    // rules and use a struct to avoid an eye sore
+    struct TestCase {
+        std::vector<short> a;
+        std::vector<short> b;
+        std::vector<char> c;
+        std::vector<number> d;
+    };
+
+    // manually created proper function outputs
+    // use a large number for the bracket adress placeholder
+    std::array<TestCase, 3> CORRECT_OUTPUT = {{
+        TestCase{{2,0,1,2}, {255,1,2,5}, {3,4,5,5}, {1,2,3,1,6}},
+        TestCase{{255,2}, {2,3}, {'*','-'}, {1,2,3,4}},
+        TestCase{{1,0}, {255,2}, {'*','-'}, {1,2,3,4}}
+    }};
+
+    // for the results
+    std::vector<short> adr1 {};
+    std::vector<short> adr2 {};
+    std::vector<char> operands {};
+    std::vector<number> numbers {};
+
+    std::cout << "TESTING THE PARSE HIGHEST EXPRESSION FUNCTION" << std::endl;
+
+    // see if each time the function runs, it produces the expected output
+    for (int x = 0; x < CORRECT_OUTPUT.size(); ++x){
+        std::cout << "INPUT EXPRESSION : " << TEST_STRINGS.at(x) << std::endl;
+
+        // print out the expected output
+        std::cout << "EXPECTED OUTPUT : \n[";
+        for (auto item : CORRECT_OUTPUT.at(x).a) std::cout << " " << item;
+        std::cout << "] \n[";
+        for (auto item : CORRECT_OUTPUT.at(x).b) std::cout << " " << item;
+        std::cout << "] \n ";
+        for (auto item : CORRECT_OUTPUT.at(x).c) std::cout << " " << (int) item; // the char values are not visible
+        std::cout << "] \n[";
+        for (auto item : CORRECT_OUTPUT.at(x).d) std::cout << " " << item;
+        std::cout << "] " << std::endl;
+
+        // now compute the function and compare the outputs
+        auto [adr1, adr2, operands, numbers] = parse_highest_level(TEST_STRINGS.at(x), std::vector<short> {255});
+
+        std::cout << "REAL OUTPUT : \n[";
+        for (auto item : adr1) std::cout << " " << item;
+        std::cout << "] \n[";
+        for (auto item : adr2) std::cout << " " << item;
+        std::cout << "] \n[";
+        for (auto item : operands) std::cout << " " << (int) item; // the char values are not visible
+        std::cout << "] \n[";
+        for (auto item : numbers) std::cout << " " << item;
+        std::cout << "] " << std::endl;
+
+    }
+
+    return true;
+
+
+}
+
 int main() {
-    std::string inputData {};
 
-    while (true) {
-    std::cout << "Please enter a mathimatical expression (NO SYNTAX CHECKING YET)\n";
-    std::cin >> inputData;
-    auto [a, b, c, d] = parse_expression(inputData);
-    // now sort the data
-    auto [a1, a2, a3, a4] = sorter(a, b, c, d);
+    if(test()) return 0;
 
-    // for debug purposes
-    std::cout << "numbers\n";
-    for (auto i : a4) {
-        std::cout << i << " ";
-    }
-    std::cout << '\n';
-
-    for (int x = 0; x < a3.size(); ++x) {
-        std::cout << (int) a3[x] << " | " << a1[x] << " | " << a2[x] << " | \n";
-    }
-    std::cout << '\n';
-    // now crunch down the expression and print the result, fingers crossed
-    std::cout << "the result is : ";
-    std::cout << simplify(a1,a2,a3,a4);
-
-    }
-    return 0;
+    return 1;
 
 }
