@@ -47,7 +47,7 @@ inline std::vector<number> parse_numbers(const std::string &inputString) {
     std::vector<number> numbers {};
 
     int i = 0;
-    int start = 0; // the start in the string where the number will be
+    int start = 0; // the start in the string where the number will bae
     int posInNumArray = 1; // the pos a number will occupy in the number array
     bool nextNumNeg = false;
     bool isFloat = false;
@@ -225,12 +225,12 @@ std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std::vecto
                 // shift their first adress back one value
                 if (operands.at(item + 1) >= c) {
                     adr1.at(item +1 ) = adr1.at(item);
-                    std::cout << "shifted\n";
+                    std::cout << "/tshifted\n";
                 }
 
                 // iterate back untill a lesser / equal operand is found, otherwise continue looking untll the end of the array
                 for (int x = item -1 ; x > 0; --x){
-                    if (operands.at(item) <= operands.at(item) ) break;
+                    if (operands.at(item) <= operands.at(item - 1) ) break;
                     --operands.at(item);
                 }
 
@@ -304,7 +304,7 @@ inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std
     // put all un bracketed parts of the expression into a substring, replacing all bracketed parts with
     // a place holder character (in this case 1)
     // also store all required adresss shifts that will be nessisary due to the bracketed segments
-    // being removed (if i remove the middle part of the string when converting to code, and I try to
+    // being removed (if the program removes the middle part of the string when converting to code, and I try to
     // use the same adresses as outputed, it will be an adress inside a bracket
     for (short u = 0; u < inputString.size(); ++u){
         // count how many  right opening brackets there are, and add to the depth
@@ -329,25 +329,29 @@ inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std
                 // if the program has just reached the start of a new bracketed expression
                 // add the non bracketed preceeding characters to the substring, along with a placeholder for
                 // the bracketed part
-
-                offsetStart.push_back(subString.length() / 2); // where the offset will start accounting for the bracket end
-                subString = inputString.substr(nonBrktStart, inputString.size() - nonBrktEnd) + "1";
+                std::cout << "\tThe error was the first line" << std::endl;
+                if (subString.size()) offsetStart.push_back(parse_numbers(subString).size()-1); // where the offset will start accounting for the bracket end
+                std::cout << "\t the error was the second line" << std::endl;
+                subString += inputString.substr(nonBrktStart, inputString.size() - nonBrktEnd - 1) + "1";
 
             }
         }
     }
+
     // if the expression does not end in a bracket, add the last of the expression to the substring
-    if (nonBrktStart < subString.length()) {
+    if (nonBrktStart < inputString.length()) {
+        std::cout << "\tFinal check was run for the end of the bracketed expression!" << std::endl;
         offsetStart.push_back(subString.length() / 2);
-        subString = inputString.substr(nonBrktStart, inputString.size() - nonBrktEnd);
+        subString += inputString.substr(nonBrktStart, inputString.size() - nonBrktStart);
     }
 
-    std::cout << "the string to be parsed is : "<< subString << std::endl;
+    std::cout << "\tthe string to be parsed is : "<< subString << std::endl;
 
     // now parse the substring
     auto [_adr1, _adr2, _op, _num] = convert_to_code(subString);
 
     // now add the apropriate offset to the adresses to account for the sections where brackets were removed
+    std::cout << "\tadding the first offset" << std::endl;
     for (short O = 0; O < offsetStart.size() - 1; ++O) {
         for(int X = offsetStart[O]; X < offsetStart[O+1]; ++X){
             ++_adr1[ offsets[O] ];
@@ -355,15 +359,17 @@ inline std::tuple<std::vector<short>, std::vector<short>, std::vector<char>, std
         }
 
     }
-    // for the last offset, do untill the end of the list
+    /* for the last offset, do untill the end of the list
+    std::cout << "\tadding the second offset" << std::endl;
     for(int X = offsetStart.back(); X < _adr1.size(); ++X){
             ++_adr1[ offsets.back() ];
             ++_adr2[ offsets.back() ];
     }
+    */
 
     // replace the temporary adresses for the brackets with the real adresses for the brackets
     for (short adress : offsetStart) {
-        _adr1.at(adress) = lastAdresses.back();
+        _adr2.at(adress) = lastAdresses.back();
         lastAdresses.pop_back();
     }
 
@@ -643,7 +649,6 @@ number simplify(std::vector<short> adr1,
     return numbers[adr1[operands.size() -1]];
 }
 
-
 bool test (){
     /*
     A function to test the program, notice that all couts have std:endl this is to ensure that
@@ -696,7 +701,7 @@ bool test (){
         for (auto item : CORRECT_OUTPUT.at(x).a) std::cout << " " << item;
         std::cout << "] \n[";
         for (auto item : CORRECT_OUTPUT.at(x).b) std::cout << " " << item;
-        std::cout << "] \n ";
+        std::cout << "] \n [";
         for (auto item : CORRECT_OUTPUT.at(x).c) std::cout << " " << (int) item; // the char values are not visible
         std::cout << "] \n[";
         for (auto item : CORRECT_OUTPUT.at(x).d) std::cout << " " << item;
