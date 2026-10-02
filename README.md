@@ -5,3 +5,4 @@ some goals of this project:
   - to not use any classes or struts in the actual code (mostly functional)
   - no LLM used for any code writing (absolutely zero)
   - to be somewhat efficient (functionality is the priority)
+  - No recursion
